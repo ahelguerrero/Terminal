@@ -660,6 +660,8 @@ public:
         _cursorPreviousLine{ false },
         _cursorHorizontalPositionAbsolute{ false },
         _verticalLinePositionAbsolute{ false },
+        _horizontalPositionRelative{ false },
+        _verticalPositionRelative{ false },
         _cursorPosition{ false },
         _cursorSave{ false },
         _cursorLoad{ false },
@@ -676,7 +678,15 @@ public:
         _isAltBuffer{ false },
         _cursorKeysMode{ false },
         _cursorBlinking{ true },
+        _isScreenModeReversed{ false },
         _isOriginModeRelative{ false },
+        _isAutoWrapEnabled{ true },
+        _warningBell{ false },
+        _carriageReturn{ false },
+        _lineFeed{ false },
+        _lineFeedType{ (DispatchTypes::LineFeedType)-1 },
+        _forwardTab{ false },
+        _numTabs{ 0 },
         _isDECCOLMAllowed{ false },
         _windowWidth{ 80 },
         _options{ s_cMaxOptions, static_cast<DispatchTypes::GraphicsOptions>(s_uiGraphicsCleared) } // fill with cleared option
@@ -689,63 +699,77 @@ public:
         *this = dispatch;
     }
 
-    bool CursorUp(_In_ size_t const uiDistance) override
+    bool CursorUp(_In_ size_t const uiDistance) noexcept override
     {
         _cursorUp = true;
         _cursorDistance = uiDistance;
         return true;
     }
 
-    bool CursorDown(_In_ size_t const uiDistance) override
+    bool CursorDown(_In_ size_t const uiDistance) noexcept override
     {
         _cursorDown = true;
         _cursorDistance = uiDistance;
         return true;
     }
 
-    bool CursorBackward(_In_ size_t const uiDistance) override
+    bool CursorBackward(_In_ size_t const uiDistance) noexcept override
     {
         _cursorBackward = true;
         _cursorDistance = uiDistance;
         return true;
     }
 
-    bool CursorForward(_In_ size_t const uiDistance) override
+    bool CursorForward(_In_ size_t const uiDistance) noexcept override
     {
         _cursorForward = true;
         _cursorDistance = uiDistance;
         return true;
     }
 
-    bool CursorNextLine(_In_ size_t const uiDistance) override
+    bool CursorNextLine(_In_ size_t const uiDistance) noexcept override
     {
         _cursorNextLine = true;
         _cursorDistance = uiDistance;
         return true;
     }
 
-    bool CursorPrevLine(_In_ size_t const uiDistance) override
+    bool CursorPrevLine(_In_ size_t const uiDistance) noexcept override
     {
         _cursorPreviousLine = true;
         _cursorDistance = uiDistance;
         return true;
     }
 
-    bool CursorHorizontalPositionAbsolute(_In_ size_t const uiPosition) override
+    bool CursorHorizontalPositionAbsolute(_In_ size_t const uiPosition) noexcept override
     {
         _cursorHorizontalPositionAbsolute = true;
         _cursorDistance = uiPosition;
         return true;
     }
 
-    bool VerticalLinePositionAbsolute(_In_ size_t const uiPosition) override
+    bool VerticalLinePositionAbsolute(_In_ size_t const uiPosition) noexcept override
     {
         _verticalLinePositionAbsolute = true;
         _cursorDistance = uiPosition;
         return true;
     }
 
-    bool CursorPosition(_In_ size_t const uiLine, _In_ size_t const uiColumn) override
+    bool HorizontalPositionRelative(_In_ size_t const uiDistance) noexcept override
+    {
+        _horizontalPositionRelative = true;
+        _cursorDistance = uiDistance;
+        return true;
+    }
+
+    bool VerticalPositionRelative(_In_ size_t const uiDistance) noexcept override
+    {
+        _verticalPositionRelative = true;
+        _cursorDistance = uiDistance;
+        return true;
+    }
+
+    bool CursorPosition(_In_ size_t const uiLine, _In_ size_t const uiColumn) noexcept override
     {
         _cursorPosition = true;
         _line = uiLine;
@@ -753,61 +777,62 @@ public:
         return true;
     }
 
-    bool CursorSaveState() override
+    bool CursorSaveState() noexcept override
     {
         _cursorSave = true;
         return true;
     }
 
-    bool CursorRestoreState() override
+    bool CursorRestoreState() noexcept override
     {
         _cursorLoad = true;
         return true;
     }
 
-    bool EraseInDisplay(const DispatchTypes::EraseType eraseType) override
+    bool EraseInDisplay(const DispatchTypes::EraseType eraseType) noexcept override
     {
         _eraseDisplay = true;
         _eraseType = eraseType;
         return true;
     }
 
-    bool EraseInLine(const DispatchTypes::EraseType eraseType) override
+    bool EraseInLine(const DispatchTypes::EraseType eraseType) noexcept override
     {
         _eraseLine = true;
         _eraseType = eraseType;
         return true;
     }
 
-    bool InsertCharacter(_In_ size_t const uiCount) override
+    bool InsertCharacter(_In_ size_t const uiCount) noexcept override
     {
         _insertCharacter = true;
         _cursorDistance = uiCount;
         return true;
     }
 
-    bool DeleteCharacter(_In_ size_t const uiCount) override
+    bool DeleteCharacter(_In_ size_t const uiCount) noexcept override
     {
         _deleteCharacter = true;
         _cursorDistance = uiCount;
         return true;
     }
 
-    bool CursorVisibility(const bool fIsVisible) override
+    bool CursorVisibility(const bool fIsVisible) noexcept override
     {
         _cursorVisible = fIsVisible;
         return true;
     }
 
-    bool SetGraphicsRendition(const std::basic_string_view<DispatchTypes::GraphicsOptions> options) override
+    bool SetGraphicsRendition(const std::basic_string_view<DispatchTypes::GraphicsOptions> options) noexcept override
+    try
     {
         _options.assign(options.cbegin(), options.cend());
         _setGraphics = true;
-
         return true;
     }
+    CATCH_LOG_RETURN_FALSE()
 
-    bool DeviceStatusReport(const DispatchTypes::AnsiStatusType statusType) override
+    bool DeviceStatusReport(const DispatchTypes::AnsiStatusType statusType) noexcept override
     {
         _deviceStatusReport = true;
         _statusReportType = statusType;
@@ -815,7 +840,7 @@ public:
         return true;
     }
 
-    bool DeviceAttributes() override
+    bool DeviceAttributes() noexcept override
     {
         _deviceAttributes = true;
 
@@ -834,9 +859,15 @@ public:
         case DispatchTypes::PrivateModeParams::DECCOLM_SetNumberOfColumns:
             fSuccess = SetColumns(static_cast<size_t>(fEnable ? DispatchTypes::s_sDECCOLMSetColumns : DispatchTypes::s_sDECCOLMResetColumns));
             break;
+        case DispatchTypes::PrivateModeParams::DECSCNM_ScreenMode:
+            fSuccess = SetScreenMode(fEnable);
+            break;
         case DispatchTypes::PrivateModeParams::DECOM_OriginMode:
             // The cursor is also moved to the new home position when the origin mode is set or reset.
             fSuccess = SetOriginMode(fEnable) && CursorPosition(1, 1);
+            break;
+        case DispatchTypes::PrivateModeParams::DECAWM_AutoWrapMode:
+            fSuccess = SetAutoWrapMode(fEnable);
             break;
         case DispatchTypes::PrivateModeParams::ATT610_StartCursorBlink:
             fSuccess = EnableCursorBlinking(fEnable);
@@ -869,53 +900,91 @@ public:
         return cFailures == 0;
     }
 
-    bool SetPrivateModes(const std::basic_string_view<DispatchTypes::PrivateModeParams> params) override
+    bool SetPrivateModes(const std::basic_string_view<DispatchTypes::PrivateModeParams> params) noexcept override
     {
         return _SetResetPrivateModesHelper(params, true);
     }
 
-    bool ResetPrivateModes(const std::basic_string_view<DispatchTypes::PrivateModeParams> params) override
+    bool ResetPrivateModes(const std::basic_string_view<DispatchTypes::PrivateModeParams> params) noexcept override
     {
         return _SetResetPrivateModesHelper(params, false);
     }
 
-    bool SetColumns(_In_ size_t const uiColumns) override
+    bool SetColumns(_In_ size_t const uiColumns) noexcept override
     {
         _windowWidth = uiColumns;
         return true;
     }
 
-    bool SetVirtualTerminalInputMode(const bool fApplicationMode)
+    bool SetVirtualTerminalInputMode(const bool fApplicationMode) noexcept
     {
         _cursorKeysMode = fApplicationMode;
         return true;
     }
 
-    bool EnableCursorBlinking(const bool bEnable) override
+    bool EnableCursorBlinking(const bool bEnable) noexcept override
     {
         _cursorBlinking = bEnable;
         return true;
     }
 
-    bool SetOriginMode(const bool fRelativeMode) override
+    bool SetScreenMode(const bool reverseMode) noexcept override
+    {
+        _isScreenModeReversed = reverseMode;
+        return true;
+    }
+
+    bool SetOriginMode(const bool fRelativeMode) noexcept override
     {
         _isOriginModeRelative = fRelativeMode;
         return true;
     }
 
-    bool EnableDECCOLMSupport(const bool fEnabled) override
+    bool SetAutoWrapMode(const bool wrapAtEOL) noexcept override
+    {
+        _isAutoWrapEnabled = wrapAtEOL;
+        return true;
+    }
+
+    bool WarningBell() noexcept override
+    {
+        _warningBell = true;
+        return true;
+    }
+
+    bool CarriageReturn() noexcept override
+    {
+        _carriageReturn = true;
+        return true;
+    }
+
+    bool LineFeed(const DispatchTypes::LineFeedType lineFeedType) noexcept override
+    {
+        _lineFeed = true;
+        _lineFeedType = lineFeedType;
+        return true;
+    }
+
+    bool ForwardTab(const size_t numTabs) noexcept override
+    {
+        _forwardTab = true;
+        _numTabs = numTabs;
+        return true;
+    }
+
+    bool EnableDECCOLMSupport(const bool fEnabled) noexcept override
     {
         _isDECCOLMAllowed = fEnabled;
         return true;
     }
 
-    bool UseAlternateScreenBuffer() override
+    bool UseAlternateScreenBuffer() noexcept override
     {
         _isAltBuffer = true;
         return true;
     }
 
-    bool UseMainScreenBuffer() override
+    bool UseMainScreenBuffer() noexcept override
     {
         _isAltBuffer = false;
         return true;
@@ -932,6 +1001,8 @@ public:
     bool _cursorPreviousLine;
     bool _cursorHorizontalPositionAbsolute;
     bool _verticalLinePositionAbsolute;
+    bool _horizontalPositionRelative;
+    bool _verticalPositionRelative;
     bool _cursorPosition;
     bool _cursorSave;
     bool _cursorLoad;
@@ -948,7 +1019,15 @@ public:
     bool _isAltBuffer;
     bool _cursorKeysMode;
     bool _cursorBlinking;
+    bool _isScreenModeReversed;
     bool _isOriginModeRelative;
+    bool _isAutoWrapEnabled;
+    bool _warningBell;
+    bool _carriageReturn;
+    bool _lineFeed;
+    DispatchTypes::LineFeedType _lineFeedType;
+    bool _forwardTab;
+    size_t _numTabs;
     bool _isDECCOLMAllowed;
     size_t _windowWidth;
 
@@ -964,30 +1043,6 @@ class StateMachineExternalTest final
     TEST_METHOD_SETUP(SetupState)
     {
         return true;
-    }
-
-    void TestEscCursorMovement(wchar_t const wchCommand,
-                               const bool* const pfFlag,
-                               StateMachine& mach,
-                               StatefulDispatch& dispatch)
-    {
-        mach.ProcessCharacter(AsciiChars::ESC);
-        mach.ProcessCharacter(wchCommand);
-
-        VERIFY_IS_TRUE(*pfFlag);
-        VERIFY_ARE_EQUAL(dispatch._cursorDistance, 1u);
-    }
-
-    TEST_METHOD(TestEscCursorMovement)
-    {
-        auto dispatch = std::make_unique<StatefulDispatch>();
-        auto pDispatch = dispatch.get();
-        auto engine = std::make_unique<OutputStateMachineEngine>(std::move(dispatch));
-        StateMachine mach(std::move(engine));
-        TestEscCursorMovement(L'A', &pDispatch->_cursorUp, mach, *pDispatch);
-        TestEscCursorMovement(L'B', &pDispatch->_cursorDown, mach, *pDispatch);
-        TestEscCursorMovement(L'C', &pDispatch->_cursorForward, mach, *pDispatch);
-        TestEscCursorMovement(L'D', &pDispatch->_cursorBackward, mach, *pDispatch);
     }
 
     void InsertNumberToMachine(StateMachine* const pMachine, size_t number)
@@ -1081,6 +1136,10 @@ class StateMachineExternalTest final
         pDispatch->ClearState();
         TestCsiCursorMovement(L'd', uiDistance, true, &pDispatch->_verticalLinePositionAbsolute, mach, *pDispatch);
         pDispatch->ClearState();
+        TestCsiCursorMovement(L'a', uiDistance, true, &pDispatch->_horizontalPositionRelative, mach, *pDispatch);
+        pDispatch->ClearState();
+        TestCsiCursorMovement(L'e', uiDistance, true, &pDispatch->_verticalPositionRelative, mach, *pDispatch);
+        pDispatch->ClearState();
         TestCsiCursorMovement(L'@', uiDistance, true, &pDispatch->_insertCharacter, mach, *pDispatch);
         pDispatch->ClearState();
         TestCsiCursorMovement(L'P', uiDistance, true, &pDispatch->_deleteCharacter, mach, *pDispatch);
@@ -1111,6 +1170,10 @@ class StateMachineExternalTest final
         TestCsiCursorMovement(L'`', uiDistance, false, &pDispatch->_cursorHorizontalPositionAbsolute, mach, *pDispatch);
         pDispatch->ClearState();
         TestCsiCursorMovement(L'd', uiDistance, false, &pDispatch->_verticalLinePositionAbsolute, mach, *pDispatch);
+        pDispatch->ClearState();
+        TestCsiCursorMovement(L'a', uiDistance, false, &pDispatch->_horizontalPositionRelative, mach, *pDispatch);
+        pDispatch->ClearState();
+        TestCsiCursorMovement(L'e', uiDistance, false, &pDispatch->_verticalPositionRelative, mach, *pDispatch);
         pDispatch->ClearState();
         TestCsiCursorMovement(L'@', uiDistance, false, &pDispatch->_insertCharacter, mach, *pDispatch);
         pDispatch->ClearState();
@@ -1249,6 +1312,25 @@ class StateMachineExternalTest final
         pDispatch->ClearState();
     }
 
+    TEST_METHOD(TestScreenMode)
+    {
+        auto dispatch = std::make_unique<StatefulDispatch>();
+        auto pDispatch = dispatch.get();
+        auto engine = std::make_unique<OutputStateMachineEngine>(std::move(dispatch));
+        StateMachine mach(std::move(engine));
+
+        mach.ProcessString(L"\x1b[?5h");
+        VERIFY_IS_TRUE(pDispatch->_isScreenModeReversed);
+
+        pDispatch->ClearState();
+        pDispatch->_isScreenModeReversed = true;
+
+        mach.ProcessString(L"\x1b[?5l");
+        VERIFY_IS_FALSE(pDispatch->_isScreenModeReversed);
+
+        pDispatch->ClearState();
+    }
+
     TEST_METHOD(TestOriginMode)
     {
         auto dispatch = std::make_unique<StatefulDispatch>();
@@ -1270,6 +1352,25 @@ class StateMachineExternalTest final
         VERIFY_IS_TRUE(pDispatch->_cursorPosition);
         VERIFY_ARE_EQUAL(pDispatch->_line, 1u);
         VERIFY_ARE_EQUAL(pDispatch->_column, 1u);
+
+        pDispatch->ClearState();
+    }
+
+    TEST_METHOD(TestAutoWrapMode)
+    {
+        auto dispatch = std::make_unique<StatefulDispatch>();
+        auto pDispatch = dispatch.get();
+        auto engine = std::make_unique<OutputStateMachineEngine>(std::move(dispatch));
+        StateMachine mach(std::move(engine));
+
+        mach.ProcessString(L"\x1b[?7l");
+        VERIFY_IS_FALSE(pDispatch->_isAutoWrapEnabled);
+
+        pDispatch->ClearState();
+        pDispatch->_isAutoWrapEnabled = false;
+
+        mach.ProcessString(L"\x1b[?7h");
+        VERIFY_IS_TRUE(pDispatch->_isAutoWrapEnabled);
 
         pDispatch->ClearState();
     }
@@ -1803,6 +1904,94 @@ class StateMachineExternalTest final
         VERIFY_IS_TRUE(pDispatch->_eraseDisplay);
 
         VERIFY_ARE_EQUAL(expectedDispatchTypes, pDispatch->_eraseType);
+
+        pDispatch->ClearState();
+    }
+
+    TEST_METHOD(TestLineFeed)
+    {
+        auto dispatch = std::make_unique<StatefulDispatch>();
+        auto pDispatch = dispatch.get();
+        auto engine = std::make_unique<OutputStateMachineEngine>(std::move(dispatch));
+        StateMachine mach(std::move(engine));
+
+        Log::Comment(L"IND (Index) escape sequence");
+        mach.ProcessCharacter(AsciiChars::ESC);
+        mach.ProcessCharacter(L'D');
+
+        VERIFY_IS_TRUE(pDispatch->_lineFeed);
+        VERIFY_ARE_EQUAL(DispatchTypes::LineFeedType::WithoutReturn, pDispatch->_lineFeedType);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"NEL (Next Line) escape sequence");
+        mach.ProcessCharacter(AsciiChars::ESC);
+        mach.ProcessCharacter(L'E');
+
+        VERIFY_IS_TRUE(pDispatch->_lineFeed);
+        VERIFY_ARE_EQUAL(DispatchTypes::LineFeedType::WithReturn, pDispatch->_lineFeedType);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"LF (Line Feed) control code");
+        mach.ProcessCharacter(AsciiChars::LF);
+
+        VERIFY_IS_TRUE(pDispatch->_lineFeed);
+        VERIFY_ARE_EQUAL(DispatchTypes::LineFeedType::DependsOnMode, pDispatch->_lineFeedType);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"FF (Form Feed) control code");
+        mach.ProcessCharacter(AsciiChars::FF);
+
+        VERIFY_IS_TRUE(pDispatch->_lineFeed);
+        VERIFY_ARE_EQUAL(DispatchTypes::LineFeedType::DependsOnMode, pDispatch->_lineFeedType);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"VT (Vertical Tab) control code");
+        mach.ProcessCharacter(AsciiChars::VT);
+
+        VERIFY_IS_TRUE(pDispatch->_lineFeed);
+        VERIFY_ARE_EQUAL(DispatchTypes::LineFeedType::DependsOnMode, pDispatch->_lineFeedType);
+
+        pDispatch->ClearState();
+    }
+
+    TEST_METHOD(TestControlCharacters)
+    {
+        auto dispatch = std::make_unique<StatefulDispatch>();
+        auto pDispatch = dispatch.get();
+        auto engine = std::make_unique<OutputStateMachineEngine>(std::move(dispatch));
+        StateMachine mach(std::move(engine));
+
+        Log::Comment(L"BEL (Warning Bell) control character");
+        mach.ProcessCharacter(AsciiChars::BEL);
+
+        VERIFY_IS_TRUE(pDispatch->_warningBell);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"BS (Back Space) control character");
+        mach.ProcessCharacter(AsciiChars::BS);
+
+        VERIFY_IS_TRUE(pDispatch->_cursorBackward);
+        VERIFY_ARE_EQUAL(1u, pDispatch->_cursorDistance);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"CR (Carriage Return) control character");
+        mach.ProcessCharacter(AsciiChars::CR);
+
+        VERIFY_IS_TRUE(pDispatch->_carriageReturn);
+
+        pDispatch->ClearState();
+
+        Log::Comment(L"HT (Horizontal Tab) control character");
+        mach.ProcessCharacter(AsciiChars::TAB);
+
+        VERIFY_IS_TRUE(pDispatch->_forwardTab);
+        VERIFY_ARE_EQUAL(1u, pDispatch->_numTabs);
 
         pDispatch->ClearState();
     }

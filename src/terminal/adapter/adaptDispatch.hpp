@@ -44,6 +44,8 @@ namespace Microsoft::Console::VirtualTerminal
         bool CursorPrevLine(const size_t distance) override; // CPL
         bool CursorHorizontalPositionAbsolute(const size_t column) override; // CHA
         bool VerticalLinePositionAbsolute(const size_t line) override; // VPA
+        bool HorizontalPositionRelative(const size_t distance) override; // HPR
+        bool VerticalPositionRelative(const size_t distance) override; // VPR
         bool CursorPosition(const size_t line, const size_t column) override; // CUP
         bool CursorSaveState() override; // DECSC
         bool CursorRestoreState() override; // DECRC
@@ -66,9 +68,14 @@ namespace Microsoft::Console::VirtualTerminal
         bool SetCursorKeysMode(const bool applicationMode) override; // DECCKM
         bool SetKeypadMode(const bool applicationMode) override; // DECKPAM, DECKPNM
         bool EnableCursorBlinking(const bool enable) override; // ATT610
-        bool SetOriginMode(const bool relativeMode) override; // DECOM
+        bool SetScreenMode(const bool reverseMode) override; //DECSCNM
+        bool SetOriginMode(const bool relativeMode) noexcept override; // DECOM
+        bool SetAutoWrapMode(const bool wrapAtEOL) override; // DECAWM
         bool SetTopBottomScrollingMargins(const size_t topMargin,
                                           const size_t bottomMargin) override; // DECSTBM
+        bool WarningBell() override; // BEL
+        bool CarriageReturn() override; // CR
+        bool LineFeed(const DispatchTypes::LineFeedType lineFeedType) override; // IND, NEL
         bool ReverseLineFeed() override; // RI
         bool SetWindowTitle(const std::wstring_view title) override; // OscWindowTitle
         bool UseAlternateScreenBuffer() override; // ASBSET
@@ -77,11 +84,11 @@ namespace Microsoft::Console::VirtualTerminal
         bool ForwardTab(const size_t numTabs) override; // CHT
         bool BackwardsTab(const size_t numTabs) override; // CBT
         bool TabClear(const size_t clearType) override; // TBC
-        bool DesignateCharset(const wchar_t wchCharset) override; // DesignateCharset
+        bool DesignateCharset(const wchar_t wchCharset) noexcept override; // DesignateCharset
         bool SoftReset() override; // DECSTR
         bool HardReset() override; // RIS
         bool ScreenAlignmentPattern() override; // DECALN
-        bool EnableDECCOLMSupport(const bool enabled) override; // ?40
+        bool EnableDECCOLMSupport(const bool enabled) noexcept override; // ?40
         bool EnableVT200MouseMode(const bool enabled) override; // ?1000
         bool EnableUTF8ExtendedMouseMode(const bool enabled) override; // ?1005
         bool EnableSGRExtendedMouseMode(const bool enabled) override; // ?1006
@@ -100,15 +107,6 @@ namespace Microsoft::Console::VirtualTerminal
                                 const std::basic_string_view<size_t> parameters) override; // DTTERM_WindowManipulation
 
     private:
-        enum class CursorDirection
-        {
-            Up,
-            Down,
-            Left,
-            Right,
-            NextLine,
-            PrevLine
-        };
         enum class ScrollDirection
         {
             Up,
@@ -122,9 +120,18 @@ namespace Microsoft::Console::VirtualTerminal
             TextAttribute Attributes = {};
             TerminalOutput TermOutput = {};
         };
+        struct Offset
+        {
+            int Value;
+            bool IsAbsolute;
+            // VT origin is at 1,1 so we need to subtract 1 from absolute positions.
+            static constexpr Offset Absolute(const size_t value) { return { gsl::narrow_cast<int>(value) - 1, true }; };
+            static constexpr Offset Forward(const size_t value) { return { gsl::narrow_cast<int>(value), false }; };
+            static constexpr Offset Backward(const size_t value) { return { -gsl::narrow_cast<int>(value), false }; };
+            static constexpr Offset Unchanged() { return Forward(0); };
+        };
 
-        bool _CursorMovement(const CursorDirection dir, const size_t distance) const;
-        bool _CursorMovePosition(const std::optional<size_t> row, const std::optional<size_t> column) const;
+        bool _CursorMovePosition(const Offset rowOffset, const Offset colOffset, const bool clampInMargins) const;
         bool _EraseSingleLineHelper(const CONSOLE_SCREEN_BUFFER_INFOEX& csbiex,
                                     const DispatchTypes::EraseType eraseType,
                                     const size_t lineId) const;
@@ -133,8 +140,8 @@ namespace Microsoft::Console::VirtualTerminal
         bool _EraseAll();
         bool _InsertDeleteHelper(const size_t count, const bool isInsert) const;
         bool _ScrollMovement(const ScrollDirection dir, const size_t distance) const;
-        static void s_DisableAllColors(WORD& attr, const bool isForeground);
-        static void s_ApplyColors(WORD& attr, const WORD applyThis, const bool isForeground);
+        static void s_DisableAllColors(WORD& attr, const bool isForeground) noexcept;
+        static void s_ApplyColors(WORD& attr, const WORD applyThis, const bool isForeground) noexcept;
 
         bool _DoSetTopBottomScrollingMargins(const size_t topMargin,
                                              const size_t bottomMargin);
@@ -175,10 +182,5 @@ namespace Microsoft::Console::VirtualTerminal
         bool _SetBoldColorHelper(const DispatchTypes::GraphicsOptions option);
         bool _SetDefaultColorHelper(const DispatchTypes::GraphicsOptions option);
         bool _SetExtendedTextAttributeHelper(const DispatchTypes::GraphicsOptions option);
-
-        static bool s_IsRgbColorOption(const DispatchTypes::GraphicsOptions opt);
-        static bool s_IsBoldColorOption(const DispatchTypes::GraphicsOptions opt) noexcept;
-        static bool s_IsDefaultColorOption(const DispatchTypes::GraphicsOptions opt) noexcept;
-        static bool s_IsExtendedTextAttribute(const DispatchTypes::GraphicsOptions opt) noexcept;
     };
 }
